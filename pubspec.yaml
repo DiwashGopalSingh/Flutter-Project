@@ -1,0 +1,38 @@
+name: blood_bank_management
+description: "Blood Bank Management System - Connecting donors, hospitals, and administrators to save lives."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase Core & Services
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.0
+  cloud_firestore: ^5.4.3
+  firebase_storage: ^12.3.2
+
+  # State Management
+  provider: ^6.1.2
+
+  # UI & Charts
+  google_fonts: ^6.2.1
+  fl_chart: ^0.69.0
+
+  # Utilities
+  intl: ^0.19.0
+  shared_preferences: ^2.3.2
+  uuid: ^4.5.0
+  image_picker: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
