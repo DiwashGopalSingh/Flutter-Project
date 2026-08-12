@@ -20,7 +20,11 @@ class DonorService {
     final donorsStr = prefs.getString(_donorsPrefKey);
     if (donorsStr != null) {
       final List<dynamic> decoded = json.decode(donorsStr);
-      _mockDonors = decoded.map((map) => DonorModel.fromMap(map, map['id'])).toList();
+      _mockDonors = decoded.map((map) {
+        final mapObj = Map<String, dynamic>.from(map);
+        final id = mapObj['id']?.toString() ?? mapObj['userId']?.toString() ?? '';
+        return DonorModel.fromMap(mapObj, id);
+      }).toList();
     } else {
       _mockDonors = [];
     }
@@ -75,10 +79,13 @@ class DonorService {
 
   Future<DonorModel?> getDonorByUserId(String userId) async {
     if (AppConfig.useMockData) {
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 150));
       await _loadDonors();
       try {
-        return _mockDonors.firstWhere((d) => d.userId == userId);
+        final matches = _mockDonors.where((d) => d.userId == userId || d.id == userId).toList();
+        if (matches.isEmpty) return null;
+        matches.sort((a, b) => b.totalDonations.compareTo(a.totalDonations));
+        return matches.first;
       } catch (_) {
         return null;
       }
@@ -100,8 +107,9 @@ class DonorService {
   }
 
   Future<DonorModel> createDonorRecord(DonorModel donor) async {
+    final String idToUse = donor.id.isNotEmpty ? donor.id : (donor.userId.isNotEmpty ? donor.userId : _uuid.v4());
     final newDonor = DonorModel(
-      id: _uuid.v4(),
+      id: idToUse,
       userId: donor.userId,
       name: donor.name,
       bloodGroup: donor.bloodGroup,
@@ -113,10 +121,24 @@ class DonorService {
       totalDonations: donor.totalDonations,
       donationIds: donor.donationIds,
     );
-    
+
     if (AppConfig.useMockData) {
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 150));
       await _loadDonors();
+      
+      final existingIndex = _mockDonors.indexWhere((d) => d.userId == donor.userId || d.id == donor.id);
+      if (existingIndex != -1) {
+        final existing = _mockDonors[existingIndex];
+        final updated = existing.copyWith(
+          name: donor.name.isNotEmpty ? donor.name : existing.name,
+          bloodGroup: donor.bloodGroup.isNotEmpty ? donor.bloodGroup : existing.bloodGroup,
+          phone: donor.phone.isNotEmpty ? donor.phone : existing.phone,
+        );
+        _mockDonors[existingIndex] = updated;
+        await _saveDonors();
+        return updated;
+      }
+
       _mockDonors.add(newDonor);
       await _saveDonors();
       return newDonor;
@@ -135,10 +157,10 @@ class DonorService {
 
   Future<DonorModel> recordDonation(String donorId) async {
     if (AppConfig.useMockData) {
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(milliseconds: 150));
       await _loadDonors();
 
-      final index = _mockDonors.indexWhere((d) => d.id == donorId);
+      var index = _mockDonors.indexWhere((d) => d.id == donorId || d.userId == donorId);
       if (index == -1) throw Exception('Donor not found');
 
       final donor = _mockDonors[index];

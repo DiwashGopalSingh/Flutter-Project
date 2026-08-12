@@ -102,7 +102,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         final user = auth.currentUser;
-        if (user == null) return const SizedBox.shrink();
+        if (user == null) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
 
         return Scaffold(
           appBar: AppBar(
@@ -299,14 +305,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Icon(icon, size: 16, color: AppColors.textHint),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: AppTextStyles.caption),
-              Text(value, style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textPrimary,
-              )),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: AppTextStyles.caption),
+                Text(value, style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textPrimary,
+                )),
+              ],
+            ),
           ),
         ],
       ),

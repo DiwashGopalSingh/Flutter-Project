@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
-import '../../providers/auth_provider.dart';
+
 import '../../providers/donor_provider.dart';
+import '../../providers/inventory_provider.dart';
+import '../../models/blood_unit_model.dart';
 
 class DirectDonationScreen extends StatefulWidget {
   const DirectDonationScreen({super.key});
@@ -14,17 +16,17 @@ class DirectDonationScreen extends StatefulWidget {
 }
 
 class _DirectDonationScreenState extends State<DirectDonationScreen> {
-  String? selectedHospital;
+  String? selectedHospital = 'h1';
   DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+  bool _isSubmitting = false;
 
   // Mock list of hospitals
   final List<Map<String, String>> hospitals = [
     {'id': 'h1', 'name': 'City General Hospital', 'distance': '2.4 km'},
-    {'id': 'h2', 'name': 'Metro Care Hospital', 'distance': '4.1 km'},
-    {'id': 'h3', 'name': 'Sunrise Medical Center', 'distance': '5.8 km'},
   ];
 
   void _scheduleDonation() async {
+    if (_isSubmitting) return;
     if (selectedHospital == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a hospital')),
@@ -32,43 +34,88 @@ class _DirectDonationScreenState extends State<DirectDonationScreen> {
       return;
     }
 
-    final donorProvider = context.read<DonorProvider>();
-    final donorId = context.read<AuthProvider>().currentUser?.id;
+    setState(() => _isSubmitting = true);
 
-    if (donorId != null) {
-      // Record donation
-      await donorProvider.recordDonation(donorId);
-      
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.backgroundCard,
-            title: const Row(
-              children: [
-                Icon(Icons.check_circle, color: AppColors.success),
-                SizedBox(width: 8),
-                Text('Scheduled!'),
+    try {
+      final donorProvider = context.read<DonorProvider>();
+      final donorProfile = donorProvider.currentDonorProfile;
+
+      if (donorProfile != null) {
+        if (!donorProfile.canDonateNow) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('You must wait ${donorProfile.daysUntilEligible} more days before your next donation.'),
+              backgroundColor: AppColors.warning,
+            ),
+          );
+          return;
+        }
+
+        // Record donation
+        await donorProvider.recordDonation(donorProfile.id);
+        
+        // Automatically add to inventory
+        if (!mounted) return;
+        final inventoryProvider = context.read<InventoryProvider>();
+        final hospitalName = hospitals.firstWhere(
+            (h) => h['id'] == selectedHospital, 
+            orElse: () => {'name': 'Unknown Hospital'}
+        )['name']!;
+        
+        await inventoryProvider.addUnit(
+          BloodUnitModel(
+            id: '',
+            bloodGroup: donorProfile.bloodGroup,
+            quantity: 1,
+            collectionDate: selectedDate,
+            expiryDate: selectedDate.add(const Duration(days: 35)),
+            status: 'Available',
+            donorId: donorProfile.id,
+            donorName: donorProfile.name,
+            location: hospitalName,
+          )
+        );
+        
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: AppColors.backgroundCard,
+              title: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: AppColors.success),
+                  SizedBox(width: 8),
+                  Text('Scheduled!'),
+                ],
+              ),
+              content: const Text('Your direct donation has been successfully scheduled. Thank you for saving lives!'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('OK'),
+                ),
               ],
             ),
-            content: const Text('Your direct donation has been successfully scheduled. Thank you for saving lives!'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  Navigator.pop(context);
-                },
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final donorProvider = context.watch<DonorProvider>();
+    final donorProfile = donorProvider.currentDonorProfile;
+    final canDonate = donorProfile?.canDonateNow ?? true;
+    final daysRemaining = donorProfile?.daysUntilEligible ?? 0;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Direct Donation'),
@@ -78,6 +125,36 @@ class _DirectDonationScreenState extends State<DirectDonationScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (!canDonate) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.warningBg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.timer_rounded, color: AppColors.warning, size: 28),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Waiting Period Active', style: AppTextStyles.labelLarge.copyWith(color: AppColors.warning)),
+                          const SizedBox(height: 2),
+                          Text(
+                            'You donated blood recently! Please wait $daysRemaining more days before your next donation.',
+                            style: AppTextStyles.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             Text('Donate to a Nearby Hospital', style: AppTextStyles.headlineMedium),
             const SizedBox(height: 8),
             Text(
@@ -166,14 +243,23 @@ class _DirectDonationScreenState extends State<DirectDonationScreen> {
               width: double.infinity,
               height: 54,
               child: ElevatedButton(
-                onPressed: _scheduleDonation,
+                onPressed: (_isSubmitting || !canDonate) ? null : _scheduleDonation,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: Text('Confirm Donation', style: AppTextStyles.buttonText),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : Text(canDonate ? 'Confirm Donation' : 'Waiting Period Active', style: AppTextStyles.buttonText),
               ),
             ),
           ],

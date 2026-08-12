@@ -55,6 +55,7 @@ class DonorModel {
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'userId': userId,
       'name': name,
       'bloodGroup': bloodGroup,
@@ -69,6 +70,9 @@ class DonorModel {
   }
 
   DonorModel copyWith({
+    String? name,
+    String? bloodGroup,
+    String? phone,
     String? address,
     DateTime? lastDonationDate,
     int? totalDonations,
@@ -79,9 +83,9 @@ class DonorModel {
     return DonorModel(
       id: id,
       userId: userId,
-      name: name,
-      bloodGroup: bloodGroup,
-      phone: phone,
+      name: name ?? this.name,
+      bloodGroup: bloodGroup ?? this.bloodGroup,
+      phone: phone ?? this.phone,
       address: address ?? this.address,
       lastDonationDate: lastDonationDate ?? this.lastDonationDate,
       totalDonations: totalDonations ?? this.totalDonations,

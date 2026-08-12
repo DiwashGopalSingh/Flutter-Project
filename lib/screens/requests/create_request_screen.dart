@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/app_text_styles.dart';
+import '../../core/routes/app_routes.dart';
 import '../../models/blood_request_model.dart';
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/request_provider.dart';
 import '../../widgets/custom_button.dart';
@@ -47,6 +49,17 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   }
 
   Future<void> _submit() async {
+    final user = context.read<AuthProvider>().currentUser;
+    if (user?.role == UserRole.donor || user?.role.name == 'donor') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Donors cannot create blood requests. Requests can be submitted by Hospitals and Administrators.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
     if (_selectedBloodGroup == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -56,12 +69,12 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     }
 
     setState(() => _isLoading = true);
-    final user = context.read<AuthProvider>().currentUser!;
+    final userVal = user!;
 
     final request = BloodRequestModel(
       id: '',
-      requestedBy: user.id,
-      requesterName: user.name,
+      requestedBy: userVal.id,
+      requesterName: userVal.name,
       hospitalName: _hospitalCtrl.text.trim(),
       bloodGroup: _selectedBloodGroup!,
       quantity: int.tryParse(_quantityCtrl.text) ?? 1,
@@ -90,6 +103,44 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().currentUser;
+    final isDonor = user?.role == UserRole.donor;
+
+    if (isDonor) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('New Blood Request')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.block_rounded, size: 64, color: AppColors.error),
+                const SizedBox(height: 16),
+                Text('Action Not Allowed', style: AppTextStyles.headlineMedium),
+                const SizedBox(height: 8),
+                Text(
+                  'Donors are not permitted to create blood requests. As a donor, you can view existing requests and donate blood to save lives.',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.bodyMedium,
+                ),
+                const SizedBox(height: 24),
+                CustomButton(
+                  label: 'View Blood Requests',
+                  width: 220,
+                  icon: Icons.bloodtype_rounded,
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.bloodRequests);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('New Blood Request')),
       body: SingleChildScrollView(

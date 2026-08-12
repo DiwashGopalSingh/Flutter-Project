@@ -20,10 +20,48 @@ class RequestService {
     final requestsStr = prefs.getString(_requestsPrefKey);
     if (requestsStr != null) {
       final List<dynamic> decoded = json.decode(requestsStr);
-      _mockRequests = decoded.map((map) => BloodRequestModel.fromMap(map, map['id'])).toList();
+      _mockRequests = [];
+      for (int i = 0; i < decoded.length; i++) {
+        final map = Map<String, dynamic>.from(decoded[i]);
+        final String rawId = (map['id'] != null && map['id'].toString().isNotEmpty)
+            ? map['id'].toString()
+            : 'req_mock_${i + 1}';
+        _mockRequests.add(BloodRequestModel.fromMap(map, rawId));
+      }
       _mockRequests.sort((a, b) => b.requestDate.compareTo(a.requestDate));
     } else {
-      _mockRequests = [];
+      final now = DateTime.now();
+      _mockRequests = [
+        BloodRequestModel(
+          id: 'req_mock_1',
+          requestedBy: 'h1',
+          requesterName: 'City General Hospital',
+          hospitalName: 'City General Hospital',
+          bloodGroup: 'O+',
+          quantity: 2,
+          urgency: 'Emergency',
+          status: 'Pending',
+          patientName: 'John Doe',
+          notes: 'Urgent surgery requirement',
+          requestDate: now.subtract(const Duration(hours: 2)),
+          contactPhone: '9876543210',
+        ),
+        BloodRequestModel(
+          id: 'req_mock_2',
+          requestedBy: 'h1',
+          requesterName: 'City General Hospital',
+          hospitalName: 'City General Hospital',
+          bloodGroup: 'A+',
+          quantity: 1,
+          urgency: 'Urgent',
+          status: 'Pending',
+          patientName: 'Jane Smith',
+          notes: 'ICU Patient',
+          requestDate: now.subtract(const Duration(hours: 5)),
+          contactPhone: '9876543210',
+        ),
+      ];
+      await _saveRequests();
     }
   }
 
@@ -39,7 +77,7 @@ class RequestService {
 
   Future<List<BloodRequestModel>> getAllRequests() async {
     if (AppConfig.useMockData) {
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 300));
       await _loadRequests();
       return List.from(_mockRequests);
     }
@@ -135,6 +173,56 @@ class RequestService {
       return newRequest;
     } catch (e) {
       throw Exception('Failed to create request: $e');
+    }
+  }
+
+  Future<BloodRequestModel> recordUnitDonation(String id, {int units = 1}) async {
+    if (AppConfig.useMockData) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      await _loadRequests();
+
+      var index = _mockRequests.indexWhere((r) => r.id == id);
+      if (index == -1) {
+        index = _mockRequests.indexWhere((r) => r.status != 'Fulfilled' && r.status != 'Cancelled');
+      }
+      if (index == -1) throw Exception('Request not found');
+
+      final req = _mockRequests[index];
+      final newFulfilled = req.fulfilledQuantity + units;
+      final isFullyFulfilled = newFulfilled >= req.quantity;
+      final newStatus = isFullyFulfilled ? 'Fulfilled' : 'Processing';
+
+      final updated = req.copyWith(
+        fulfilledQuantity: newFulfilled,
+        status: newStatus,
+        fulfilledDate: isFullyFulfilled ? DateTime.now() : req.fulfilledDate,
+      );
+
+      _mockRequests[index] = updated;
+      await _saveRequests();
+      return updated;
+    }
+
+    try {
+      final docRef = FirebaseFirestore.instance.collection('blood_requests').doc(id);
+      final docSnapshot = await docRef.get();
+      if (!docSnapshot.exists) throw Exception('Request not found');
+
+      final req = BloodRequestModel.fromMap(docSnapshot.data()!, docSnapshot.id);
+      final newFulfilled = req.fulfilledQuantity + units;
+      final isFullyFulfilled = newFulfilled >= req.quantity;
+      final newStatus = isFullyFulfilled ? 'Fulfilled' : 'Processing';
+
+      await docRef.update({
+        'fulfilledQuantity': newFulfilled,
+        'status': newStatus,
+        'fulfilledDate': isFullyFulfilled ? DateTime.now().toIso8601String() : req.fulfilledDate?.toIso8601String(),
+      });
+
+      final updatedDoc = await docRef.get();
+      return BloodRequestModel.fromMap(updatedDoc.data()!, updatedDoc.id);
+    } catch (e) {
+      throw Exception('Failed to record donation unit: $e');
     }
   }
 

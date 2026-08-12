@@ -6,6 +6,7 @@ import '../../core/routes/app_routes.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/request_provider.dart';
+import '../../providers/campaign_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/request_card.dart';
 import '../campaigns/campaigns_screen.dart';
@@ -27,6 +28,7 @@ class _HospitalHomeScreenState extends State<HospitalHomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final user = context.read<AuthProvider>().currentUser;
       context.read<InventoryProvider>().loadInventory();
+      context.read<CampaignProvider>().loadCampaigns();
       if (user != null) {
         context.read<RequestProvider>().loadUserRequests(user.id);
       }

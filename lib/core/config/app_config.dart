@@ -4,10 +4,8 @@
 class AppConfig {
   AppConfig._();
 
-  /// When true, the app uses in-memory mock data and SharedPreferences
-  /// for authentication — no Firebase connection required.
-  ///
-  /// Set to false after completing Firebase setup.
+  /// When true, the app uses in-memory mock data and SharedPreferences.
+  /// Set to false to connect live to Firebase Authentication and Cloud Firestore.
   static bool useMockData = false;
 
   /// App environment

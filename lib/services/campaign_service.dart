@@ -23,7 +23,20 @@ class CampaignService {
       _mockCampaigns = decoded.map((map) => CampaignModel.fromMap(map, map['id'])).toList();
       _mockCampaigns.sort((a, b) => a.date.compareTo(b.date)); // Sort ascending by date
     } else {
-      _mockCampaigns = [];
+      final now = DateTime.now();
+      _mockCampaigns = [
+        CampaignModel(
+          id: _uuid.v4(),
+          title: 'City General Blood Drive',
+          description: 'Join us for our community blood donation drive. Every unit counts!',
+          location: 'City General Hospital',
+          date: now.add(const Duration(days: 3)),
+          organizerId: 'h1',
+          organizerName: 'City General Hospital',
+          targetBloodGroups: ['O-', 'A+', 'B+'],
+        ),
+      ];
+      await _saveCampaigns();
     }
   }
 

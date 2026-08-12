@@ -69,6 +69,22 @@ class RequestProvider extends ChangeNotifier {
     }
   }
 
+  Future<BloodRequestModel?> recordUnitDonation(String id, {int units = 1}) async {
+    try {
+      final updated = await _service.recordUnitDonation(id, units: units);
+      final index = _requests.indexWhere((r) => r.id == id);
+      if (index != -1) {
+        _requests[index] = updated;
+        notifyListeners();
+      }
+      return updated;
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return null;
+    }
+  }
+
   Future<void> updateStatus(String id, String status) async {
     try {
       final updated = await _service.updateStatus(id, status);

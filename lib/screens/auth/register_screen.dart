@@ -4,8 +4,9 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../core/routes/app_routes.dart';
-import '../../models/user_model.dart';
+import '../../models/donor_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/donor_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
 
@@ -22,9 +23,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _hospitalNameCtrl = TextEditingController();
 
-  String _selectedRole = AppConstants.roleDonor;
   String? _selectedBloodGroup;
 
   @override
@@ -33,13 +32,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _passwordCtrl.dispose();
-    _hospitalNameCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedRole == AppConstants.roleDonor && _selectedBloodGroup == null) {
+    if (_selectedBloodGroup == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select your blood group')),
       );
@@ -52,30 +50,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
       email: _emailCtrl.text.trim(),
       password: _passwordCtrl.text,
       phone: _phoneCtrl.text.trim(),
-      role: _selectedRole,
-      bloodGroup: _selectedRole == AppConstants.roleDonor ? _selectedBloodGroup : null,
-      hospitalName: _selectedRole == AppConstants.roleHospital
-          ? _hospitalNameCtrl.text.trim()
-          : null,
+      role: AppConstants.roleDonor,
+      bloodGroup: _selectedBloodGroup,
     );
 
     if (!mounted) return;
     if (success && authProvider.currentUser != null) {
-      _navigateByRole(authProvider.currentUser!.role);
-    }
-  }
-
-  void _navigateByRole(UserRole role) {
-    switch (role) {
-      case UserRole.admin:
-        Navigator.pushReplacementNamed(context, AppRoutes.adminHome);
-        break;
-      case UserRole.hospital:
-        Navigator.pushReplacementNamed(context, AppRoutes.hospitalHome);
-        break;
-      case UserRole.donor:
+      final donorProvider = context.read<DonorProvider>();
+      await donorProvider.createDonorProfile(
+        DonorModel(
+          id: '',
+          userId: authProvider.currentUser!.id,
+          name: authProvider.currentUser!.name,
+          bloodGroup: authProvider.currentUser!.bloodGroup!,
+          phone: authProvider.currentUser!.phone,
+          address: authProvider.currentUser!.address,
+        ),
+      );
+      if (mounted) {
         Navigator.pushReplacementNamed(context, AppRoutes.donorHome);
-        break;
+      }
     }
   }
 
@@ -96,7 +90,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.arrow_back_ios_rounded),
                     ),
-                    Text('Create Account', style: AppTextStyles.headlineMedium),
+                    Text('Create Donor Account', style: AppTextStyles.headlineMedium),
                   ],
                 ),
               ),
@@ -112,24 +106,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           children: [
                             const SizedBox(height: 8),
 
-                            // Role selector
-                            Text('I am a...', style: AppTextStyles.labelMedium),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                _roleCard('Donor', Icons.favorite_rounded, AppConstants.roleDonor),
-                                const SizedBox(width: 10),
-                                _roleCard('Hospital', Icons.local_hospital_rounded, AppConstants.roleHospital),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-
                             // Common fields
                             CustomTextField(
                               label: 'Full Name',
-                              hint: _selectedRole == AppConstants.roleHospital
-                                  ? 'Hospital representative name'
-                                  : 'Your full name',
+                              hint: 'Your full name',
                               controller: _nameCtrl,
                               prefixIcon: Icons.person_outline_rounded,
                               validator: (val) =>
@@ -173,23 +153,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             const SizedBox(height: 20),
 
-                            // Hospital-specific field
-                            if (_selectedRole == AppConstants.roleHospital) ...[
-                              CustomTextField(
-                                label: 'Hospital Name',
-                                hint: 'Official hospital name',
-                                controller: _hospitalNameCtrl,
-                                prefixIcon: Icons.business_rounded,
-                                validator: (val) =>
-                                    val == null || val.isEmpty ? 'Hospital name is required' : null,
-                              ),
-                              const SizedBox(height: 20),
-                            ],
-
                             // Donor blood group picker
-                            if (_selectedRole == AppConstants.roleDonor) ...[
-                              Text('Blood Group', style: AppTextStyles.labelMedium),
-                              const SizedBox(height: 10),
+                            Text('Blood Group', style: AppTextStyles.labelMedium),
+                            const SizedBox(height: 10),
                               Wrap(
                                 spacing: 10,
                                 runSpacing: 10,
@@ -233,7 +199,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 }).toList(),
                               ),
                               const SizedBox(height: 20),
-                            ],
 
                             // Error message
                             if (auth.errorMessage != null) ...[
@@ -282,51 +247,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       );
                     },
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _roleCard(String label, IconData icon, String role) {
-    final isSelected = _selectedRole == role;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedRole = role),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            gradient: isSelected ? AppColors.primaryGradient : null,
-            color: isSelected ? null : AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? AppColors.primary : AppColors.border,
-              width: isSelected ? 1.5 : 0.5,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                      blurRadius: 10,
-                      spreadRadius: 1,
-                    )
-                  ]
-                : null,
-          ),
-          child: Column(
-            children: [
-              Icon(icon,
-                  color: isSelected ? Colors.white : AppColors.textHint, size: 24),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: isSelected ? Colors.white : AppColors.textSecondary,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],

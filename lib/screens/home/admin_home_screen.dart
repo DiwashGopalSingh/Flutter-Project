@@ -11,6 +11,7 @@ import '../../providers/inventory_provider.dart';
 import '../../providers/request_provider.dart';
 import '../../widgets/request_card.dart';
 import '../../widgets/stat_card.dart';
+import '../inventory/inventory_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
   const AdminHomeScreen({super.key});
@@ -59,6 +60,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 icon: Icon(Icons.inventory_2_rounded), label: 'Inventory'),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.pushNamed(context, AppRoutes.createRequest),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('New Request'),
+        backgroundColor: AppColors.primary,
       ),
     );
   }
@@ -177,6 +184,37 @@ class _AdminDashboardTab extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 14),
+              GestureDetector(
+                onTap: () => Navigator.pushNamed(context, AppRoutes.campaigns),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.add_location_alt_rounded, color: Colors.white),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Start Blood Drive Campaign',
+                          style: AppTextStyles.buttonText,
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -315,6 +353,12 @@ class _AdminRequestsTab extends StatelessWidget {
               children: [
                 Text('All Requests', style: AppTextStyles.headlineLarge),
                 const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_rounded, color: AppColors.primary, size: 28),
+                  tooltip: 'New Blood Request',
+                  onPressed: () => Navigator.pushNamed(context, AppRoutes.createRequest),
+                ),
+                const SizedBox(width: 8),
                 Consumer<RequestProvider>(
                   builder: (context, req, _) {
                     final pending = req.stats['pending'] ?? 0;
@@ -410,9 +454,6 @@ class _AdminInventoryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.pushNamed(context, AppRoutes.inventory);
-    });
-    return const SizedBox.shrink();
+    return const InventoryScreen();
   }
 }

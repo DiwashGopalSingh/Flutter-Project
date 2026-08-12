@@ -8,6 +8,7 @@ class RequestCard extends StatelessWidget {
   final BloodRequestModel request;
   final VoidCallback? onTap;
   final VoidCallback? onStatusUpdate;
+  final VoidCallback? onDonate;
   final bool showActions;
 
   const RequestCard({
@@ -15,6 +16,7 @@ class RequestCard extends StatelessWidget {
     required this.request,
     this.onTap,
     this.onStatusUpdate,
+    this.onDonate,
     this.showActions = false,
   });
 
@@ -131,15 +133,29 @@ class RequestCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${request.quantity} unit${request.quantity > 1 ? 's' : ''}',
+                  request.quantity > 1
+                      ? '${request.fulfilledQuantity}/${request.quantity} collected (${request.remainingQuantity} needed)'
+                      : '${request.quantity} unit needed',
                   style: AppTextStyles.labelMedium.copyWith(
                     color: AppColors.textPrimary,
                   ),
                 ),
               ],
             ),
+            if (request.quantity > 1) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: request.quantity > 0 ? (request.fulfilledQuantity / request.quantity).clamp(0.0, 1.0) : 0.0,
+                  backgroundColor: AppColors.border.withValues(alpha: 0.3),
+                  color: AppColors.primary,
+                  minHeight: 6,
+                ),
+              ),
+            ],
             if (request.patientName != null) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   const Icon(Icons.person_rounded,
@@ -164,6 +180,29 @@ class RequestCard extends StatelessWidget {
                 ),
               ],
             ),
+            if (onDonate != null && request.status != 'Fulfilled' && request.status != 'Cancelled') ...[
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: onDonate,
+                  icon: const Icon(Icons.volunteer_activism_rounded, size: 18),
+                  label: Text(
+                    request.remainingQuantity > 1 
+                        ? 'Donate 1 Unit (${request.remainingQuantity} needed)' 
+                        : 'Donate to Request', 
+                    style: AppTextStyles.buttonText.copyWith(fontSize: 13),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

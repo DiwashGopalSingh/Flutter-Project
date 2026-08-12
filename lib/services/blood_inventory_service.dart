@@ -22,7 +22,65 @@ class BloodInventoryService {
       final List<dynamic> decoded = json.decode(inventoryStr);
       _mockInventory = decoded.map((map) => BloodUnitModel.fromMap(map, map['id'])).toList();
     } else {
-      _mockInventory = [];
+      final now = DateTime.now();
+      _mockInventory = [
+        BloodUnitModel(
+          id: _uuid.v4(),
+          bloodGroup: 'A+',
+          quantity: 4,
+          collectionDate: now.subtract(const Duration(days: 5)),
+          expiryDate: now.add(const Duration(days: 30)),
+          status: 'Available',
+          donorId: _uuid.v4(),
+          donorName: 'John Doe',
+          location: 'City General Hospital',
+        ),
+        BloodUnitModel(
+          id: _uuid.v4(),
+          bloodGroup: 'O+',
+          quantity: 6,
+          collectionDate: now.subtract(const Duration(days: 2)),
+          expiryDate: now.add(const Duration(days: 33)),
+          status: 'Available',
+          donorId: _uuid.v4(),
+          donorName: 'Jane Smith',
+          location: 'City General Hospital',
+        ),
+        BloodUnitModel(
+          id: _uuid.v4(),
+          bloodGroup: 'B-',
+          quantity: 2,
+          collectionDate: now.subtract(const Duration(days: 10)),
+          expiryDate: now.add(const Duration(days: 25)),
+          status: 'Available',
+          donorId: _uuid.v4(),
+          donorName: 'Michael Brown',
+          location: 'City General Hospital',
+        ),
+        BloodUnitModel(
+          id: _uuid.v4(),
+          bloodGroup: 'AB+',
+          quantity: 3,
+          collectionDate: now.subtract(const Duration(days: 1)),
+          expiryDate: now.add(const Duration(days: 34)),
+          status: 'Available',
+          donorId: _uuid.v4(),
+          donorName: 'Emily Davis',
+          location: 'City General Hospital',
+        ),
+        BloodUnitModel(
+          id: _uuid.v4(),
+          bloodGroup: 'O-',
+          quantity: 1,
+          collectionDate: now.subtract(const Duration(days: 30)),
+          expiryDate: now.add(const Duration(days: 5)),
+          status: 'Available',
+          donorId: _uuid.v4(),
+          donorName: 'David Wilson',
+          location: 'City General Hospital',
+        ),
+      ];
+      await _saveInventory();
     }
   }
 
@@ -69,7 +127,7 @@ class BloodInventoryService {
     );
     
     if (AppConfig.useMockData) {
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(milliseconds: 150));
       await _loadInventory();
       _mockInventory.add(newUnit);
       await _saveInventory();
