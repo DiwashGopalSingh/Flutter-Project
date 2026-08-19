@@ -76,7 +76,7 @@ class _SplashScreenState extends State<SplashScreen>
     await authProvider.autoLogin();
 
     if (!mounted) return;
-    await Future.delayed(const Duration(milliseconds: 1200));
+    await Future.delayed(const Duration(milliseconds: 600));
     if (!mounted) return;
 
     if (authProvider.isAuthenticated && authProvider.currentUser != null) {

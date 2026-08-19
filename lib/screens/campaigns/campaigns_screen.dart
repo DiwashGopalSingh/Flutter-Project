@@ -32,6 +32,7 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     final locationCtrl = TextEditingController();
+    final unitsCtrl = TextEditingController(text: '50');
     DateTime selectedDate = DateTime.now().add(const Duration(days: 7));
     List<String> selectedBloodGroups = [];
 
@@ -64,6 +65,16 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                       decoration: const InputDecoration(labelText: 'Location'),
                     ),
                     const SizedBox(height: 12),
+                    TextField(
+                      controller: unitsCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Target Quantity Needed (units)',
+                        hintText: 'e.g. 50',
+                        prefixIcon: Icon(Icons.format_list_numbered_rounded),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text('Date: ${DateFormat('MMM dd, yyyy').format(selectedDate)}', style: AppTextStyles.bodyMedium),
@@ -81,29 +92,46 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    Text('Target Blood Groups (Optional)', style: AppTextStyles.labelLarge),
+                    Text('Target Blood Groups (Select multiple)', style: AppTextStyles.labelLarge),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 4,
-                      children: AppConstants.bloodGroups.map((bg) {
-                        final isSelected = selectedBloodGroups.contains(bg);
-                        return FilterChip(
-                          label: Text(bg, style: TextStyle(color: isSelected ? Colors.white : AppColors.textPrimary)),
-                          selected: isSelected,
+                      children: [
+                        FilterChip(
+                          label: const Text('ALL GROUPS', style: TextStyle(fontWeight: FontWeight.bold)),
+                          selected: selectedBloodGroups.length == AppConstants.bloodGroups.length,
                           selectedColor: AppColors.primary,
                           backgroundColor: AppColors.surface,
                           onSelected: (selected) {
                             setState(() {
                               if (selected) {
-                                selectedBloodGroups.add(bg);
+                                selectedBloodGroups = List.from(AppConstants.bloodGroups);
                               } else {
-                                selectedBloodGroups.remove(bg);
+                                selectedBloodGroups.clear();
                               }
                             });
                           },
-                        );
-                      }).toList(),
+                        ),
+                        ...AppConstants.bloodGroups.map((bg) {
+                          final isSelected = selectedBloodGroups.contains(bg);
+                          return FilterChip(
+                            label: Text(bg, style: TextStyle(color: isSelected ? Colors.white : AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                            selected: isSelected,
+                            selectedColor: AppColors.primary,
+                            backgroundColor: AppColors.surface,
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  selectedBloodGroups.add(bg);
+                                } else {
+                                  selectedBloodGroups.remove(bg);
+                                }
+                              });
+                            },
+                          );
+                        }),
+                      ],
                     ),
                   ],
                 ),
@@ -118,7 +146,25 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                     final auth = context.read<AuthProvider>();
                     final campaignProvider = context.read<CampaignProvider>();
                     
-                    if (titleCtrl.text.isEmpty || locationCtrl.text.isEmpty) return;
+                    if (titleCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a campaign title'),
+                          backgroundColor: AppColors.warning,
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (locationCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a campaign location'),
+                          backgroundColor: AppColors.warning,
+                        ),
+                      );
+                      return;
+                    }
                     
                     final success = await campaignProvider.createCampaign(
                       CampaignModel(
@@ -127,19 +173,29 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                         description: descCtrl.text.trim(),
                         location: locationCtrl.text.trim(),
                         date: selectedDate,
-                        organizerId: auth.currentUser?.id ?? '',
-                        organizerName: auth.currentUser?.name ?? 'Admin',
+                        organizerId: auth.currentUser?.id ?? 'admin-001',
+                        organizerName: auth.currentUser?.name ?? 'City General Hospital',
                         targetBloodGroups: selectedBloodGroups,
+                        targetUnits: int.tryParse(unitsCtrl.text) ?? 50,
                       )
                     );
                     
-                    if (success && mounted) {
-                      if (context.mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Blood Drive Campaign started successfully!')),
-                        );
-                      }
+                    if (!context.mounted) return;
+                    if (success) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Blood Drive Campaign started successfully!'),
+                          backgroundColor: AppColors.success,
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Failed to start campaign. Please try again.'),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
                     }
                   },
                   child: const Text('Start Drive'),
@@ -166,7 +222,8 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
         actions: [
           if (isAdminOrHospital)
             IconButton(
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add_location_alt_rounded),
+              tooltip: 'Start Drive Campaign',
               onPressed: _showAddCampaignDialog,
             )
         ],
@@ -245,6 +302,74 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                           const Icon(Icons.calendar_today, size: 16, color: AppColors.primary),
                           const SizedBox(width: 4),
                           Text(DateFormat('MMM dd, yyyy').format(campaign.date), style: AppTextStyles.caption),
+                        ],
+                      ),
+                      if (campaign.targetBloodGroups.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.bloodtype_rounded, size: 16, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            Text('Requested Groups: ', style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.bold)),
+                            Expanded(
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: campaign.targetBloodGroups.map((bg) {
+                                  final bgColor = AppColors.bloodGroupColors[bg] ?? AppColors.primary;
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: bgColor.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: bgColor.withValues(alpha: 0.4)),
+                                    ),
+                                    child: Text(
+                                      bg,
+                                      style: AppTextStyles.caption.copyWith(
+                                        color: bgColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      // Quantity Goal Progress Bar
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Goal Progress: ${campaign.donatedUserIds.length} / ${campaign.targetUnits} units collected',
+                                style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                '${((campaign.donatedUserIds.length / (campaign.targetUnits > 0 ? campaign.targetUnits : 1)) * 100).clamp(0, 100).toStringAsFixed(0)}%',
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: (campaign.donatedUserIds.length / (campaign.targetUnits > 0 ? campaign.targetUnits : 1)).clamp(0.0, 1.0),
+                              backgroundColor: AppColors.surface,
+                              color: AppColors.primary,
+                              minHeight: 8,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),

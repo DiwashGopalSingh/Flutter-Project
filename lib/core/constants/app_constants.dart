@@ -58,9 +58,10 @@ class AppConstants {
   static const String prefIsLoggedIn = 'is_logged_in';
   static const String prefUseMockData = 'use_mock_data';
 
-  // Demo Credentials
+  // Demo Credentials (Single Admin & Single Hospital)
   static const String demoAdminEmail = 'admin@bloodbank.com';
-  static const String demoDonorEmail = 'donor@bloodbank.com';
   static const String demoHospitalEmail = 'hospital@bloodbank.com';
-  static const String demoPassword = 'Demo@1234';
+  static const String demoHospitalAliasEmail = 'hospital@citygeneral.com';
+  static const String demoDonorEmail = 'donor@bloodbank.com';
+  static const String demoPassword = 'password123';
 }

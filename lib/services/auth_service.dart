@@ -18,6 +18,7 @@ class AuthService {
 
   AuthService() {
     _loadUsers();
+    seedDefaultAccountsToDatabase();
   }
 
   Future<void> _loadUsers() async {
@@ -30,36 +31,169 @@ class AuthService {
       _mockUsers = {};
     }
 
-    // Ensure default Admin exists
-    if (!_mockUsers.containsKey('admin@bloodbank.com')) {
-      _mockUsers['admin@bloodbank.com'] = {
+    // Ensure default Admin exists in database
+    if (!_mockUsers.containsKey(AppConstants.demoAdminEmail)) {
+      _mockUsers[AppConstants.demoAdminEmail] = {
         'id': 'admin-001',
         'name': 'System Admin',
-        'email': 'admin@bloodbank.com',
+        'email': AppConstants.demoAdminEmail,
         'phone': '1234567890',
         'role': 'admin',
-        'password': 'password123',
+        'password': AppConstants.demoPassword,
         'createdAt': DateTime.now().toIso8601String(),
         'isActive': true,
       };
     }
 
-    // Ensure default City General Hospital exists
-    if (!_mockUsers.containsKey('hospital@citygeneral.com')) {
-      _mockUsers['hospital@citygeneral.com'] = {
+    // Ensure default Hospital exists in database (primary & alias)
+    if (!_mockUsers.containsKey(AppConstants.demoHospitalEmail)) {
+      _mockUsers[AppConstants.demoHospitalEmail] = {
         'id': 'h1',
         'name': 'City General Hospital',
-        'email': 'hospital@citygeneral.com',
+        'email': AppConstants.demoHospitalEmail,
         'hospitalName': 'City General Hospital',
         'phone': '9876543210',
         'role': 'hospital',
-        'password': 'hospital123',
+        'password': AppConstants.demoPassword,
+        'createdAt': DateTime.now().toIso8601String(),
+        'isActive': true,
+      };
+    }
+    if (!_mockUsers.containsKey(AppConstants.demoHospitalAliasEmail)) {
+      _mockUsers[AppConstants.demoHospitalAliasEmail] = {
+        'id': 'h1',
+        'name': 'City General Hospital',
+        'email': AppConstants.demoHospitalAliasEmail,
+        'hospitalName': 'City General Hospital',
+        'phone': '9876543210',
+        'role': 'hospital',
+        'password': AppConstants.demoPassword,
         'createdAt': DateTime.now().toIso8601String(),
         'isActive': true,
       };
     }
 
+    // Ensure default Donor exists in database
+    if (!_mockUsers.containsKey(AppConstants.demoDonorEmail)) {
+      _mockUsers[AppConstants.demoDonorEmail] = {
+        'id': 'donor-001',
+        'name': 'Demo Donor',
+        'email': AppConstants.demoDonorEmail,
+        'phone': '5551234567',
+        'role': 'donor',
+        'bloodGroup': 'O+',
+        'password': AppConstants.demoPassword,
+        'createdAt': DateTime.now().toIso8601String(),
+        'isActive': true,
+      };
+    }
+
+    // Force update demo passwords to AppConstants.demoPassword ('password123')
+    if (_mockUsers.containsKey(AppConstants.demoAdminEmail)) {
+      _mockUsers[AppConstants.demoAdminEmail]!['password'] = AppConstants.demoPassword;
+    }
+    if (_mockUsers.containsKey(AppConstants.demoHospitalEmail)) {
+      _mockUsers[AppConstants.demoHospitalEmail]!['password'] = AppConstants.demoPassword;
+    }
+    if (_mockUsers.containsKey(AppConstants.demoHospitalAliasEmail)) {
+      _mockUsers[AppConstants.demoHospitalAliasEmail]!['password'] = AppConstants.demoPassword;
+    }
+    if (_mockUsers.containsKey(AppConstants.demoDonorEmail)) {
+      _mockUsers[AppConstants.demoDonorEmail]!['password'] = AppConstants.demoPassword;
+    }
+
+    // Strict Enforcement: Ensure only ONE Admin and ONE Hospital exist across all mock accounts.
+    String? primaryAdmin;
+    String? primaryHospital;
+
+    _mockUsers.forEach((emailKey, userMap) {
+      final role = userMap['role'];
+      if (role == 'admin') {
+        if (primaryAdmin == null) {
+          primaryAdmin = emailKey;
+        } else {
+          userMap['role'] = 'donor'; // convert extra admin accounts to donor
+        }
+      } else if (role == 'hospital') {
+        if (primaryHospital == null || primaryHospital == AppConstants.demoHospitalEmail) {
+          primaryHospital = emailKey;
+        } else if (emailKey != AppConstants.demoHospitalAliasEmail && emailKey != AppConstants.demoHospitalEmail) {
+          userMap['role'] = 'donor'; // convert extra hospital accounts to donor
+        }
+      }
+    });
+
     await _saveUsers();
+  }
+
+  /// Seeds default Admin, Hospital, and Donor login accounts to Firestore or local database.
+  Future<void> seedDefaultAccountsToDatabase() async {
+    if (AppConfig.useMockData) {
+      await _loadUsers();
+      return;
+    }
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+
+      // Seed Admin
+      final adminDoc = await firestore.collection('users').doc('admin-001').get();
+      if (!adminDoc.exists) {
+        await firestore.collection('users').doc('admin-001').set({
+          'id': 'admin-001',
+          'name': 'System Admin',
+          'email': AppConstants.demoAdminEmail,
+          'phone': '1234567890',
+          'role': 'admin',
+          'createdAt': DateTime.now().toIso8601String(),
+          'isActive': true,
+        });
+      }
+
+      // Seed Hospital
+      final hospitalDoc = await firestore.collection('users').doc('h1').get();
+      if (!hospitalDoc.exists) {
+        await firestore.collection('users').doc('h1').set({
+          'id': 'h1',
+          'name': 'City General Hospital',
+          'email': AppConstants.demoHospitalEmail,
+          'hospitalName': 'City General Hospital',
+          'phone': '9876543210',
+          'role': 'hospital',
+          'createdAt': DateTime.now().toIso8601String(),
+          'isActive': true,
+        });
+      }
+
+      // Seed Demo Donor
+      final donorDoc = await firestore.collection('users').doc('donor-001').get();
+      if (!donorDoc.exists) {
+        await firestore.collection('users').doc('donor-001').set({
+          'id': 'donor-001',
+          'name': 'Demo Donor',
+          'email': AppConstants.demoDonorEmail,
+          'phone': '5551234567',
+          'role': 'donor',
+          'bloodGroup': 'O+',
+          'createdAt': DateTime.now().toIso8601String(),
+          'isActive': true,
+        });
+
+        await firestore.collection('donors').doc('donor-001').set({
+          'id': 'donor-001',
+          'userId': 'donor-001',
+          'name': 'Demo Donor',
+          'bloodGroup': 'O+',
+          'phone': '5551234567',
+          'totalDonations': 1,
+          'donationIds': [],
+          'isEligible': true,
+          'isAvailable': true,
+        });
+      }
+    } catch (_) {
+      // Ignored if offline or not connected
+    }
   }
 
   Future<void> _saveUsers() async {
@@ -68,95 +202,135 @@ class AuthService {
   }
 
   Future<UserModel?> signIn(String email, String password) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final isDemoAccount = cleanEmail == AppConstants.demoAdminEmail ||
+        cleanEmail == AppConstants.demoHospitalEmail ||
+        cleanEmail == AppConstants.demoHospitalAliasEmail ||
+        cleanEmail == AppConstants.demoDonorEmail;
+
     if (AppConfig.useMockData) {
-      return _mockSignIn(email, password);
+      return _mockSignIn(cleanEmail, password);
     }
     
     try {
       UserCredential cred;
       try {
         cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: email.trim(),
+          email: cleanEmail,
           password: password,
         );
-      } catch (authErr) {
-        // Auto-migrate local mock/demo account to real Firebase Auth & Firestore
-        await _loadUsers();
-        final userMap = _mockUsers[email.trim().toLowerCase()];
-        if (userMap != null || email.contains('@')) {
-          try {
-            cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-              email: email.trim(),
-              password: password,
-            );
+      } on FirebaseAuthException catch (authErr) {
+        // For demo accounts (Admin, Hospital, Donor), fallback to mock sign-in if Firebase Auth fails
+        if (isDemoAccount) {
+          return _mockSignIn(cleanEmail, password);
+        }
 
-            final name = userMap?['name'] ?? email.split('@').first;
-            final roleStr = userMap?['role'] ?? 'donor';
-            final bloodGroup = userMap?['bloodGroup'] ?? 'A+';
-            final phone = userMap?['phone'] ?? '1234567890';
-            final hospitalName = userMap?['hospitalName'];
+        if (authErr.code == 'wrong-password') {
+          throw Exception('Incorrect password. Please check your credentials and try again.');
+        } else if (authErr.code == 'user-not-found' || authErr.code == 'invalid-credential') {
+          // Attempt auto-provisioning ONLY IF account doesn't exist in Firebase Auth yet
+          await _loadUsers();
+          final userMap = _mockUsers[cleanEmail];
+          if (userMap != null || cleanEmail.contains('@')) {
+            try {
+              cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+                email: cleanEmail,
+                password: password,
+              );
 
-            final newUser = UserModel(
-              id: cred.user!.uid,
-              name: name,
-              email: email.trim(),
-              phone: phone,
-              role: UserRoleExtension.fromString(roleStr),
-              bloodGroup: bloodGroup,
-              hospitalName: hospitalName,
-              createdAt: DateTime.now(),
-            );
+              final name = userMap?['name'] ?? cleanEmail.split('@').first;
+              final roleStr = userMap?['role'] ?? 'donor';
+              final bloodGroup = userMap?['bloodGroup'] ?? 'A+';
+              final phone = userMap?['phone'] ?? '1234567890';
+              final hospitalName = userMap?['hospitalName'];
 
-            final mapToSave = newUser.toMap();
-            mapToSave['id'] = cred.user!.uid;
+              final newUser = UserModel(
+                id: cred.user!.uid,
+                name: name,
+                email: cleanEmail,
+                phone: phone,
+                role: UserRoleExtension.fromString(roleStr),
+                bloodGroup: bloodGroup,
+                hospitalName: hospitalName,
+                createdAt: DateTime.now(),
+              );
 
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(cred.user!.uid)
-                .set(mapToSave);
+              final mapToSave = newUser.toMap();
+              mapToSave['id'] = cred.user!.uid;
 
-            if (newUser.role == UserRole.donor) {
               await FirebaseFirestore.instance
-                  .collection('donors')
+                  .collection('users')
                   .doc(cred.user!.uid)
-                  .set({
-                'id': cred.user!.uid,
-                'userId': cred.user!.uid,
-                'name': name,
-                'bloodGroup': bloodGroup,
-                'phone': phone,
-                'totalDonations': 0,
-                'donationIds': [],
-                'isEligible': true,
-                'isAvailable': true,
-              });
+                  .set(mapToSave);
+
+              if (newUser.role == UserRole.donor) {
+                await FirebaseFirestore.instance
+                    .collection('donors')
+                    .doc(cred.user!.uid)
+                    .set({
+                  'id': cred.user!.uid,
+                  'userId': cred.user!.uid,
+                  'name': name,
+                  'bloodGroup': bloodGroup,
+                  'phone': phone,
+                  'totalDonations': 0,
+                  'donationIds': [],
+                  'isEligible': true,
+                  'isAvailable': true,
+                });
+              }
+            } on FirebaseAuthException catch (createErr) {
+              if (createErr.code == 'email-already-in-use') {
+                return _mockSignIn(cleanEmail, password);
+              }
+              throw Exception(createErr.message ?? 'Authentication failed.');
             }
-          } catch (_) {
-            rethrow;
+          } else {
+            throw Exception('Invalid user credentials.');
           }
+        } else if (authErr.code == 'email-already-in-use') {
+          return _mockSignIn(cleanEmail, password);
         } else {
-          rethrow;
+          throw Exception(authErr.message ?? 'Authentication failed.');
         }
       }
       
       final doc = await FirebaseFirestore.instance.collection('users').doc(cred.user!.uid).get();
       if (!doc.exists) {
-        throw Exception('User record not found in database.');
+        // Create user document if missing
+        final emailStr = cred.user!.email ?? email;
+        final name = emailStr.split('@').first;
+        final isHospital = emailStr == AppConstants.demoHospitalEmail || emailStr == AppConstants.demoHospitalAliasEmail;
+        final isAdmin = emailStr == AppConstants.demoAdminEmail;
+        final role = isAdmin ? UserRole.admin : (isHospital ? UserRole.hospital : UserRole.donor);
+
+        final newUser = UserModel(
+          id: cred.user!.uid,
+          name: name,
+          email: emailStr,
+          phone: '1234567890',
+          role: role,
+          bloodGroup: 'A+',
+          hospitalName: isHospital ? 'City General Hospital' : null,
+          createdAt: DateTime.now(),
+        );
+
+        await FirebaseFirestore.instance.collection('users').doc(cred.user!.uid).set(newUser.toMap());
+        _currentUser = newUser;
+      } else {
+        _currentUser = UserModel.fromMap(doc.data()!, cred.user!.uid);
       }
       
-      final user = UserModel.fromMap(doc.data()!, cred.user!.uid);
-      _currentUser = user;
-      
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(AppConstants.prefUserId, user.id);
-      await prefs.setString(AppConstants.prefUserRole, user.role.value);
-      await prefs.setString(AppConstants.prefUserName, user.name);
-      await prefs.setString(AppConstants.prefUserEmail, user.email);
+      await prefs.setString(AppConstants.prefUserId, _currentUser!.id);
+      await prefs.setString(AppConstants.prefUserRole, _currentUser!.role.value);
+      await prefs.setString(AppConstants.prefUserName, _currentUser!.name);
+      await prefs.setString(AppConstants.prefUserEmail, _currentUser!.email);
       await prefs.setBool(AppConstants.prefIsLoggedIn, true);
       
-      return user;
+      return _currentUser;
     } catch (e) {
-      throw Exception(e.toString());
+      throw Exception(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -206,6 +380,25 @@ class AuthService {
     String? bloodGroup,
     String? hospitalName,
   }) async {
+    if (role == 'admin' || role == 'hospital') {
+      if (AppConfig.useMockData) {
+        await _loadUsers();
+        final hasRole = _mockUsers.values.any((u) => u['role'] == role);
+        if (hasRole) {
+          throw Exception('Only one ${role == "admin" ? "Admin" : "Hospital"} account is allowed in the system.');
+        }
+      } else {
+        final existing = await FirebaseFirestore.instance
+            .collection('users')
+            .where('role', isEqualTo: role)
+            .limit(1)
+            .get();
+        if (existing.docs.isNotEmpty) {
+          throw Exception('Only one ${role == "admin" ? "Admin" : "Hospital"} account is allowed in the system.');
+        }
+      }
+    }
+
     if (AppConfig.useMockData) {
       return _mockRegister(
         name: name,
@@ -263,8 +456,13 @@ class AuthService {
       await prefs.setBool(AppConstants.prefIsLoggedIn, true);
       
       return user;
+    } on FirebaseAuthException catch (authErr) {
+      if (authErr.code == 'email-already-in-use') {
+        throw Exception('An account with this email address already exists. Please sign in instead.');
+      }
+      throw Exception(authErr.message ?? 'Registration failed.');
     } catch (e) {
-      throw Exception(e.toString());
+      throw Exception(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -279,6 +477,13 @@ class AuthService {
   }) async {
     await Future.delayed(const Duration(milliseconds: 1000));
     await _loadUsers();
+
+    if (role == 'admin' || role == 'hospital') {
+      final hasRole = _mockUsers.values.any((u) => u['role'] == role);
+      if (hasRole) {
+        throw Exception('Only one ${role == "admin" ? "Admin" : "Hospital"} account is allowed in the system.');
+      }
+    }
 
     if (_mockUsers.containsKey(email.toLowerCase())) {
       throw Exception('An account with this email already exists.');
@@ -317,14 +522,13 @@ class AuthService {
   Future<UserModel?> autoLogin() async {
     final prefs = await SharedPreferences.getInstance();
     final isLoggedIn = prefs.getBool(AppConstants.prefIsLoggedIn) ?? false;
-    if (!isLoggedIn) return null;
-
     final email = prefs.getString(AppConstants.prefUserEmail);
-    if (email == null) return null;
+
+    if (!isLoggedIn || email == null) return null;
 
     if (AppConfig.useMockData) {
       await _loadUsers();
-      final userMap = _mockUsers[email];
+      final userMap = _mockUsers[email.toLowerCase()];
       if (userMap == null) return null;
       final user = UserModel.fromMap(userMap, userMap['id']);
       _currentUser = user;
@@ -333,15 +537,32 @@ class AuthService {
     
     try {
       final fbUser = FirebaseAuth.instance.currentUser;
-      if (fbUser == null) return null;
+      if (fbUser != null) {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(fbUser.uid).get();
+        if (doc.exists) {
+          final user = UserModel.fromMap(doc.data()!, fbUser.uid);
+          _currentUser = user;
+          return user;
+        }
+      }
       
-      final doc = await FirebaseFirestore.instance.collection('users').doc(fbUser.uid).get();
-      if (!doc.exists) return null;
-      
-      final user = UserModel.fromMap(doc.data()!, fbUser.uid);
-      _currentUser = user;
-      return user;
+      // Fallback check if logged in as demo or local account
+      await _loadUsers();
+      final userMap = _mockUsers[email.toLowerCase()];
+      if (userMap != null) {
+        final user = UserModel.fromMap(userMap, userMap['id']);
+        _currentUser = user;
+        return user;
+      }
+      return null;
     } catch (e) {
+      await _loadUsers();
+      final userMap = _mockUsers[email.toLowerCase()];
+      if (userMap != null) {
+        final user = UserModel.fromMap(userMap, userMap['id']);
+        _currentUser = user;
+        return user;
+      }
       return null;
     }
   }

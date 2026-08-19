@@ -34,8 +34,8 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   void initState() {
     super.initState();
     final user = context.read<AuthProvider>().currentUser;
-    _hospitalCtrl.text = user?.hospitalName ?? user?.name ?? '';
-    _phoneCtrl.text = user?.phone ?? '';
+    _hospitalCtrl.text = user?.hospitalName ?? user?.name ?? 'City General Hospital';
+    _phoneCtrl.text = (user?.phone != null && user!.phone.isNotEmpty) ? user.phone : '9841000000';
   }
 
   @override
@@ -53,29 +53,49 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     if (user?.role == UserRole.donor || user?.role.name == 'donor') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Donors cannot create blood requests. Requests can be submitted by Hospitals and Administrators.'),
+          content: Text('Donors cannot create blood requests. Requests are submitted by Hospitals and Administrators.'),
           backgroundColor: AppColors.error,
         ),
       );
       return;
     }
 
-    if (!_formKey.currentState!.validate()) return;
     if (_selectedBloodGroup == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select blood group needed')),
+        const SnackBar(
+          content: Text('Please tap to select a blood group (e.g. A+, O-, B+)'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill out all required fields.'),
+          backgroundColor: AppColors.warning,
+        ),
       );
       return;
     }
 
     setState(() => _isLoading = true);
-    final userVal = user!;
+
+    final userId = user?.id ?? 'admin-001';
+    final userName = user?.name ?? 'System Admin';
+    final hospital = _hospitalCtrl.text.trim().isNotEmpty 
+        ? _hospitalCtrl.text.trim() 
+        : 'City General Hospital';
+    final phone = _phoneCtrl.text.trim().isNotEmpty 
+        ? _phoneCtrl.text.trim() 
+        : '9841000000';
 
     final request = BloodRequestModel(
       id: '',
-      requestedBy: userVal.id,
-      requesterName: userVal.name,
-      hospitalName: _hospitalCtrl.text.trim(),
+      requestedBy: userId,
+      requesterName: userName,
+      hospitalName: hospital,
       bloodGroup: _selectedBloodGroup!,
       quantity: int.tryParse(_quantityCtrl.text) ?? 1,
       urgency: _selectedUrgency,
@@ -83,7 +103,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
       patientName: _patientCtrl.text.isNotEmpty ? _patientCtrl.text.trim() : null,
       notes: _notesCtrl.text.isNotEmpty ? _notesCtrl.text.trim() : null,
       requestDate: DateTime.now(),
-      contactPhone: _phoneCtrl.text.trim(),
+      contactPhone: phone,
     );
 
     final success = await context.read<RequestProvider>().createRequest(request);
@@ -94,8 +114,15 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Blood request created successfully'),
+          content: Text('Blood request created successfully!'),
           backgroundColor: AppColors.success,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.read<RequestProvider>().errorMessage ?? 'Failed to create blood request.'),
+          backgroundColor: AppColors.error,
         ),
       );
     }
@@ -104,7 +131,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser;
-    final isDonor = user?.role == UserRole.donor;
+    final isDonor = user?.role == UserRole.donor || user?.role.name == 'donor';
 
     if (isDonor) {
       return Scaffold(
@@ -115,19 +142,19 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.block_rounded, size: 64, color: AppColors.error),
+                const Icon(Icons.info_outline_rounded, size: 64, color: AppColors.primary),
                 const SizedBox(height: 16),
-                Text('Action Not Allowed', style: AppTextStyles.headlineMedium),
+                Text('Donor Account Notice', style: AppTextStyles.headlineMedium),
                 const SizedBox(height: 8),
                 Text(
-                  'Donors are not permitted to create blood requests. As a donor, you can view existing requests and donate blood to save lives.',
+                  'Blood requests are created by Hospitals and System Administrators. As a Donor, you can view all active requests and donate blood to save lives.',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.bodyMedium,
                 ),
                 const SizedBox(height: 24),
                 CustomButton(
-                  label: 'View Blood Requests',
-                  width: 220,
+                  label: 'View Requests & Donate',
+                  width: 240,
                   icon: Icons.bloodtype_rounded,
                   onPressed: () {
                     Navigator.pop(context);

@@ -9,6 +9,7 @@ class CampaignModel {
   final List<String> registeredUserIds;
   final List<String> donatedUserIds;
   final List<String> targetBloodGroups;
+  final int targetUnits;
   final bool isActive;
 
   CampaignModel({
@@ -22,6 +23,7 @@ class CampaignModel {
     this.registeredUserIds = const [],
     this.donatedUserIds = const [],
     this.targetBloodGroups = const [],
+    this.targetUnits = 50,
     this.isActive = true,
   });
 
@@ -39,6 +41,7 @@ class CampaignModel {
       registeredUserIds: List<String>.from(map['registeredUserIds'] ?? []),
       donatedUserIds: List<String>.from(map['donatedUserIds'] ?? []),
       targetBloodGroups: List<String>.from(map['targetBloodGroups'] ?? []),
+      targetUnits: map['targetUnits'] ?? 50,
       isActive: map['isActive'] ?? true,
     );
   }
@@ -54,6 +57,7 @@ class CampaignModel {
       'registeredUserIds': registeredUserIds,
       'donatedUserIds': donatedUserIds,
       'targetBloodGroups': targetBloodGroups,
+      'targetUnits': targetUnits,
       'isActive': isActive,
     };
   }
@@ -66,6 +70,7 @@ class CampaignModel {
     List<String>? registeredUserIds,
     List<String>? donatedUserIds,
     List<String>? targetBloodGroups,
+    int? targetUnits,
     bool? isActive,
   }) {
     return CampaignModel(
@@ -79,6 +84,7 @@ class CampaignModel {
       registeredUserIds: registeredUserIds ?? this.registeredUserIds,
       donatedUserIds: donatedUserIds ?? this.donatedUserIds,
       targetBloodGroups: targetBloodGroups ?? this.targetBloodGroups,
+      targetUnits: targetUnits ?? this.targetUnits,
       isActive: isActive ?? this.isActive,
     );
   }

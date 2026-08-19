@@ -114,8 +114,6 @@ class _LoginScreenState extends State<LoginScreen>
                     Text('Welcome back', style: AppTextStyles.bodyMedium),
                     const SizedBox(height: 40),
 
-
-
                     // Form
                     Consumer<AuthProvider>(
                       builder: (context, auth, _) {
@@ -241,6 +239,4 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-
-
 }

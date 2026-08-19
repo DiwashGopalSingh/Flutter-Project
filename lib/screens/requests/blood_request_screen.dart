@@ -143,6 +143,7 @@ class _BloodRequestScreenState extends State<BloodRequestScreen> {
           if (!isDonor)
             IconButton(
               icon: const Icon(Icons.add_circle_rounded, color: AppColors.primary),
+              tooltip: 'New Blood Request',
               onPressed: () => Navigator.pushNamed(context, AppRoutes.createRequest),
             ),
         ],

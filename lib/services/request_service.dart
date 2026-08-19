@@ -85,13 +85,15 @@ class RequestService {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('blood_requests')
-          .orderBy('requestDate', descending: true)
           .get();
-      return snapshot.docs
+      final list = snapshot.docs
           .map((doc) => BloodRequestModel.fromMap(doc.data(), doc.id))
           .toList();
+      list.sort((a, b) => b.requestDate.compareTo(a.requestDate));
+      return list;
     } catch (e) {
-      throw Exception('Failed to fetch requests: $e');
+      await _loadRequests();
+      return List.from(_mockRequests);
     }
   }
 
@@ -108,13 +110,15 @@ class RequestService {
       final snapshot = await FirebaseFirestore.instance
           .collection('blood_requests')
           .where('requestedBy', isEqualTo: userId)
-          .orderBy('requestDate', descending: true)
           .get();
-      return snapshot.docs
+      final list = snapshot.docs
           .map((doc) => BloodRequestModel.fromMap(doc.data(), doc.id))
           .toList();
+      list.sort((a, b) => b.requestDate.compareTo(a.requestDate));
+      return list;
     } catch (e) {
-      throw Exception('Failed to fetch requests for user: $e');
+      await _loadRequests();
+      return _mockRequests.where((r) => r.requestedBy == userId).toList();
     }
   }
 
@@ -130,14 +134,18 @@ class RequestService {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('blood_requests')
-          .where('status', whereIn: ['Pending', 'Processing'])
-          .orderBy('requestDate', descending: true)
           .get();
-      return snapshot.docs
+      final list = snapshot.docs
           .map((doc) => BloodRequestModel.fromMap(doc.data(), doc.id))
+          .where((r) => r.status == 'Pending' || r.status == 'Processing')
           .toList();
+      list.sort((a, b) => b.requestDate.compareTo(a.requestDate));
+      return list;
     } catch (e) {
-      throw Exception('Failed to fetch pending requests: $e');
+      await _loadRequests();
+      return _mockRequests
+          .where((r) => r.status == 'Pending' || r.status == 'Processing')
+          .toList();
     }
   }
 
@@ -170,9 +178,15 @@ class RequestService {
           .collection('blood_requests')
           .doc(newRequest.id)
           .set(newRequest.toMap());
+      await _loadRequests();
+      _mockRequests.insert(0, newRequest);
+      await _saveRequests();
       return newRequest;
     } catch (e) {
-      throw Exception('Failed to create request: $e');
+      await _loadRequests();
+      _mockRequests.insert(0, newRequest);
+      await _saveRequests();
+      return newRequest;
     }
   }
 

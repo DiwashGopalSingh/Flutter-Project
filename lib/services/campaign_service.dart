@@ -60,15 +60,17 @@ class CampaignService {
     try {
       final snapshot = await FirebaseFirestore.instance
           .collection('campaigns')
-          .where('isActive', isEqualTo: true)
-          .orderBy('date', descending: false)
           .get();
           
-      return snapshot.docs
+      final list = snapshot.docs
           .map((doc) => CampaignModel.fromMap(doc.data(), doc.id))
+          .where((c) => c.isActive)
           .toList();
+      list.sort((a, b) => a.date.compareTo(b.date));
+      return list;
     } catch (e) {
-      throw Exception('Failed to fetch campaigns: $e');
+      await _loadCampaigns();
+      return List.from(_mockCampaigns.where((c) => c.isActive));
     }
   }
 
@@ -82,6 +84,7 @@ class CampaignService {
       organizerId: campaign.organizerId,
       organizerName: campaign.organizerName,
       targetBloodGroups: campaign.targetBloodGroups,
+      targetUnits: campaign.targetUnits,
     );
 
     if (AppConfig.useMockData) {
@@ -97,9 +100,15 @@ class CampaignService {
           .collection('campaigns')
           .doc(newCampaign.id)
           .set(newCampaign.toMap());
+      await _loadCampaigns();
+      _mockCampaigns.add(newCampaign);
+      await _saveCampaigns();
       return newCampaign;
     } catch (e) {
-      throw Exception('Failed to create campaign: $e');
+      await _loadCampaigns();
+      _mockCampaigns.add(newCampaign);
+      await _saveCampaigns();
+      return newCampaign;
     }
   }
 
